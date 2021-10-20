@@ -1,0 +1,238 @@
+<html>
+    <head>
+        <title>貪吃蛇</title>
+        <meta charset="UTF-8" />
+    </head>   
+    <body>
+	    <script src='/socket.io/socket.io.js'></script>
+	    <script src='http://code.jquery.com/jquery-1.8.2.min.js'></script>
+		<div><div id="delId"><h3>請等待玩家2的加入.....</h3></div></div>
+		<div style = "display:inline;float:left" class="row">
+			<div style = "display:inline;float:left" class="col-md-6">
+				<canvas style = "display:none;float:left" width="750" height="750" ID="mycanvas" tabindex="0">Canvas tag not supported</canvas>
+			</div>
+		</div>
+		<font size = "8"><div id="winner"></div></font>
+		<br>
+		<br>
+		<br>
+		<font size = "6"><div id="explainAA"></div></font>
+		
+		<font size = "6"><div id="StopGame"></div></font>
+		
+        <script>
+			var canvas = document.getElementById("mycanvas");
+			canvas.addEventListener('keydown', doKeyDown, true);
+			var ctxt = canvas.getContext("2d");
+			var scale = 25;
+			var cons = 0;
+			var stopflag = 0;
+			var explainA1 = document.getElementById("explainAA").innerHTML;
+			window.onload = function(){  
+				socket = io.connect();
+				
+				
+				socket.emit('start', prompt('請輸入玩家名稱'));
+
+				// 加入房間完成，接收加入的房間名稱    
+				socket.on('announce', function(data) {
+					var msg = "<li>"+data.st+"</li>\n"
+					var newInnerHTML = msg + document.getElementById("broadcast").innerHTML;
+					document.getElementById("broadcast").innerHTML = newInnerHTML;
+		
+					if(data.cons == 2){
+						setInterval(function(){
+							socket.emit("test");
+						},200);
+					}
+					
+				});
+				socket.on('topic',function(topic){
+					socket.emit('servertopic',topic);
+				});
+				socket.on('counts', function(data) {
+					if(data == 2){
+						//刪除等待訊息
+						var obj = document.getElementById("delId");
+						obj.innerHTML = "";
+						var parentObj = obj.parentNode;
+						parentObj.removeChild(obj);
+						
+						//顯示遊戲畫面
+						document.getElementById("mycanvas").style.display="inline";
+					}
+				});
+				
+				socket.on('drawsnakes',function(data){
+					ctxt.clearRect(0,0,canvas.width,canvas.height);
+					//在圖上布置成語
+					drawtext(data.selec1);
+					drawtext(data.selec2);
+					drawtext(data.selec3);
+					drawtext(data.selec4);
+					
+					//畫出蛇的身體
+					drawsnakes(data.snakes);
+					
+					
+					if(data.snakes.length >= 2){
+						//計算分數和判斷是否獲勝
+						countscore(data.player1,data.player2,data.snakes,data.explainA);
+						//顯示解釋
+						drawexplain(data.explainT);
+					}
+				});
+				//遊戲停止
+				socket.on('stopgame',function(){
+					stopgame();
+				});
+			};
+			
+			function stopgame(){
+				var obj = document.getElementById("mycanvas");
+				obj.innerHTML = "";
+				var parentObj = obj.parentNode;
+				parentObj.removeChild(obj);
+						
+				var obj = document.getElementById("score1");
+				obj.innerHTML = "";
+				var parentObj = obj.parentNode;
+				parentObj.removeChild(obj);
+						
+				var obj = document.getElementById("score2");
+				obj.innerHTML = "";
+				var parentObj = obj.parentNode;
+				parentObj.removeChild(obj);
+						
+				var obj = document.getElementById("explain");
+				obj.innerHTML = "";
+				var parentObj = obj.parentNode;
+				parentObj.removeChild(obj);
+				
+				document.getElementById("StopGame").innerHTML = "有人已離開遊戲，連線已中斷，請重新開始一局!";
+			};
+			
+			function drawsnakes(snakes){
+				for (var i = 0; i < snakes.length; i++){
+					if(i == 0){
+						ctxt.fillStyle = "blue";
+						ctxt.fill();
+						ctxt.fillRect(snakes[i].x, snakes[i].y, scale, scale);
+					}
+					else{
+						ctxt.fillStyle = "red";
+						ctxt.fill();
+						ctxt.fillRect(snakes[i].x, snakes[i].y, scale, scale);
+					}
+				}
+			};
+	
+			function countscore(player1,player2,snakes,explainA){
+				document.getElementById("score1").innerHTML = player1+"(藍隊)分數:"+snakes[0].highscore;
+				document.getElementById("score2").innerHTML = player2+"(紅隊)分數:"+snakes[1].highscore;
+				
+				//如果到50分就結束遊戲(藍隊)
+				if(snakes[0].highscore == 50){
+					//刪除等待訊息
+					var obj = document.getElementById("mycanvas");
+					obj.innerHTML = "";
+					var parentObj = obj.parentNode;
+					parentObj.removeChild(obj);
+						
+					var obj = document.getElementById("score1");
+					obj.innerHTML = "";
+					var parentObj = obj.parentNode;
+					parentObj.removeChild(obj);
+						
+					var obj = document.getElementById("score2");
+					obj.innerHTML = "";
+					var parentObj = obj.parentNode;
+					parentObj.removeChild(obj);
+						
+					var obj = document.getElementById("explain");
+					obj.innerHTML = "";
+					var parentObj = obj.parentNode;
+					parentObj.removeChild(obj);
+						
+					//顯示藍隊獲勝
+					document.getElementById("winner").innerHTML = "藍隊獲勝" ;
+					socket.emit("InsertData");
+					explainA1 = "錯誤解答:"+"<br>";
+					for(var i = 0; i < explainA.length; i++){
+						explainA1 = explainA1.concat(i+1,".",explainA[i],"<br>");
+					}
+					document.getElementById("explainAA").innerHTML = explainA1;
+				}
+				//如果到50分就結束遊戲(紅隊)
+				else if(snakes[1].highscore == 50){
+					//刪除等待訊息
+					var obj = document.getElementById("mycanvas");
+					obj.innerHTML = "";
+					var parentObj = obj.parentNode;
+					parentObj.removeChild(obj);
+						
+					var obj = document.getElementById("score1");
+					obj.innerHTML = "";
+					var parentObj = obj.parentNode;
+					parentObj.removeChild(obj);
+						
+					var obj = document.getElementById("score2");
+					obj.innerHTML = "";
+					var parentObj = obj.parentNode;
+					parentObj.removeChild(obj);
+						
+					var obj = document.getElementById("explain");
+					obj.innerHTML = "";
+					var parentObj = obj.parentNode;
+					parentObj.removeChild(obj);
+						
+					//顯示紅隊獲勝
+					document.getElementById("winner").innerHTML = "紅隊獲勝" ;
+					socket.emit("InsertData");
+					explainA1 = "錯誤解答:"+"<br>";
+					for(var i = 0; i < explainA.length; i++){
+						explainA1 = explainA1.concat(i+1,'.',explainA[i],"<br>");
+					}
+					document.getElementById("explainAA").innerHTML = explainA1;
+				}
+			}
+			
+			function drawexplain(explainT){
+				document.getElementById("explain").innerHTML = "此題成語解釋: "+explainT;
+			}
+			
+			function drawtext(text){
+				ctxt.font = "24px Georgia";
+				ctxt.textBaseline = 'top';
+				ctxt.fillStyle = "black";
+				ctxt.fill();
+				ctxt.fillText(text.s,text.x, text.y);				
+			};
+			//移動
+			function doKeyDown(e){
+				if (e.keyCode == 87 || e.keyCode == 38) {
+					socket.emit("move",{"direction":"up"});
+				}
+				if (e.keyCode == 83 || e.keyCode == 40) {
+					socket.emit("move",{"direction":"down"});
+				}
+				if (e.keyCode == 65 || e.keyCode == 37) {
+					socket.emit("move",{"direction":"left"});
+				}
+				if (e.keyCode == 68 || e.keyCode == 39) {
+					socket.emit("move",{"direction":"right"});
+				}
+			};
+
+        </script>
+		
+		<font size = "5"><div style = "display:inline; vertical-align:top" id = score1></div></font>
+		<font size = "5"><div style = "display:block; vertical-align:top" id = score2></div></font>
+		<br>
+		<font size = "5"><div style = "display:block; vertical-align:top" id = explain></div></font>
+		
+		<br>
+		<br>
+		<ul  style = "clear:left" id="broadcast"></ul>
+    </body>
+</html>
